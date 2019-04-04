@@ -9,7 +9,11 @@
   "dependencies": {
     "react": "16.8.3",
     "react-native": "0.59.3",
-    "react-native-firebase": "^5.2.3"
+    "react-native-aws-signature": "0.0.9",
+    "react-native-device-info": "^1.4.1",
+    "react-native-firebase": "^5.2.3",
+    "react-native-gesture-handler": "^1.1.0",
+    "react-navigation": "^3.6.1"
   },
   "devDependencies": {
     "@babel/core": "7.4.0",
