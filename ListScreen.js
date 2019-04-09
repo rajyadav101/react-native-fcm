@@ -1,66 +1,75 @@
 import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity, Linking} from 'react-native';
+import {View, Text, StyleSheet, TouchableOpacity, Linking, WebView} from 'react-native';
 
 // Dummy data to show in list
-const data = [
-    {
-        title : 'Title 1 goes here',
-        desc : 'lorem ipsum sit dela dfgh qwjhjk',
-        date : 'jan 2nd 2019',
-        url : 'https://www.google.com/',
-    },
-    {
-        title : 'Title 2 goes here',
-        desc : 'lorem ipsum sit dela dfgh qwjhjk',
-        date : 'jan 2nd 2019',
-        url : 'https://www.google.com/',
-    },
-    {
-        title : 'Title 3 goes here',
-        desc : 'lorem ipsum sit dela dfgh qwjhjk',
-        date : 'jan 2nd 2019',
-        url : 'https://www.google.com/',
-    },
-    {
-        title : 'Title 4 goes here',
-        desc : 'lorem ipsum sit dela dfgh qwjhjk',
-        date : 'jan 2nd 2019',
-        url : 'https://www.google.com/',
-    },
-
-];
 
 export default class ListScreen extends React.Component {
     constructor(props) {
         super(props);
-        this.showList = this.showList.bind(this);
+        this.state ={
+          data : []
+        }
+       this.showList = this.showList.bind(this);
+       this._onPressButton = this._onPressButton.bind(this);
     }
-     
+    componentDidMount(){
+      var thisobj = this;
+      fetch('https://phpq09tvz7.execute-api.us-east-1.amazonaws.com/prod',{
+        headers: {
+          'Accept':'application/json'
+        },
+      }).then(async function(resp){
+        const responseData = await resp.json();
+          console.log('msg list'+JSON.stringify(responseData.body));
+          var temp = JSON.stringify(responseData.body.Items);
+          var parseData = JSON.parse(temp);
+          thisobj.setState({data:parseData});
+          console.log('response data'+ JSON.parse(temp));
+      });
+    }
+    _onPressButton(parm){
+      this.props.navigation.navigate(
+        'UrlPage',
+        { parm },
+      );
+    }
     showList() {
-        return data.map(function(list, i){
+      console.log('showlist called', this.state.data);
+      var data = this.state.data;
+      let a = [];
+      console.log('type of', typeof data);
+      console.log('type of', typeof a);
+      if(data.length>0){
+        return data.map((list, i) => {
+          //<TouchableOpacity onPress={()=>{Linking.openURL('https://'+list.message.S)}} style={styles.touchable}></TouchableOpacity>
           return(
             <View key={i} style={styles.list}>
-            <TouchableOpacity onPress={()=>{Linking.openURL(list.url)}} style={styles.touchable}>
+             <TouchableOpacity onPress={() => {this._onPressButton(list.message.S)}} style={styles.touchable}>
               <View style={styles.title}>
-                <Text style={styles.heading}>{list.title}</Text>
-                <Text style={styles.subhead}>{list.desc}</Text>
+                <Text style={styles.heading}>{list.message.S}</Text>
+                <Text style={styles.subhead}>{list.createdAt.S}</Text>
               </View>
               <View style={styles.dateSection}>
                   <Text style={styles.subhead}>
-                      {list.date}
+                      
                   </Text>
               </View>
-              </TouchableOpacity>
+              </TouchableOpacity> 
             </View>
           );
         });
       }
+        
+      }
 
     render() {
         return (
+          
             <View style={styles.main}>
                 {this.showList()}
             </View>
+           
+          
         )}
 }
 

@@ -14,6 +14,9 @@ import DeviceInfo from 'react-native-device-info';
 import { createStackNavigator, createSwitchNavigator, createAppContainer } from 'react-navigation';
 import ListScreen from './ListScreen';
 import AWSSignature from 'react-native-aws-signature';
+import Loader from './Loader';
+import WebviewScreen from './WebviewScreen';
+import axios from 'axios';
 
 Platform.select({
   ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
@@ -31,21 +34,18 @@ class HomeScreen extends Component<Props> {
       username: '',
       password: '',
       loginStatus: false,
+      loader: false
     };
     this.validate = this.validate.bind(this);
-
-
-    const loginToken = AsyncStorage.getItem("loginToken");
-    if(loginToken == "1"){
+    this.validateGuid = this.validateGuid.bind(this);
+   // AsyncStorage.clear(async function(){
       
-      this.setState({loginStatus: true});
-    }else{
-      this.setState({loginStatus: false});
-    }
+    //});
+    
     //Alert.alert(JSON.stringify(userToken));
     // This will switch to the App screen or Auth screen and this loading
     // screen will be unmounted and thrown away.
-    this.props.navigation.navigate(this.state.loginStatus ? 'List' : 'App');
+   
    
 
     
@@ -56,13 +56,52 @@ class HomeScreen extends Component<Props> {
   static navigationOptions = {
     header: null
 }
+
+
+validateGuid = async () => {
+  var thisobj = this;
+  var loginToken = await AsyncStorage.getItem("loginToken");
+  await Alert.alert("login token "+JSON.stringify(loginToken));
+//console.log('login token', loginToken);
+if(loginToken != ""){
+  DeviceInfo.getMACAddress().then(mac => {
+    //Alert.alert("mac "+mac);
+
+    axios.get('https://mdev.humaxdigital.com/HumaxMobile/NonAuth/AuthMobileApp.aspx?AppID=Mobile&MacAddress='+mac+'&AuthKey=' +loginToken )
+  .then(async function(responseData){
+    await Alert.alert("login token "+responseData.data);
+      //console.log('verify res', responseData);
+      if(responseData.data){
+        thisobj.props.navigation.navigate('List');
+      }else {
+       
+        AsyncStorage.removeItem("loginToken");
+        thisobj.props.navigation.navigate('App');
+      }
+  });
+
+    // "E5:12:D8:E5:69:97"
+    
+  });
+  
+   
+}else{
+  
+  this.props.navigation.navigate('App');
+}
+}
   _bootstrapAsync = async () => {
+    this.setState({
+      loader:true
+    })
     const dname = DeviceInfo.getDeviceName();
     //const mac = DeviceInfo.getMACAddress();
     const appName = DeviceInfo.getApplicationName();
     DeviceInfo.getMACAddress().then(mac => {
+
+
       // "E5:12:D8:E5:69:97"
-     // console.log('mac', mac);
+      console.log('mac', mac);
       var payload = {
         AppID: 'android',
         MacAddress: mac,
@@ -71,15 +110,17 @@ class HomeScreen extends Component<Props> {
         PASS: this.state.password,
       };
        var thisobj = this;
-      fetch('https://mdev.humaxdigital.com/HumaxMobile/NonAuth/Login.aspx?AppID=Mobile&MacAddress='+mac+'&DeviceName='+appName+'&ID='+this.state.username+'&PASS='+this.state.password,{
-        headers: {
-          'Accept':'application/json'
-        },
-      }).then(async function(responseData){
+      // fetch('https://mdev.humaxdigital.com/HumaxMobile/NonAuth/Login.aspx?AppID=Mobile&MacAddress='+mac+'&DeviceName='+appName+'&ID='+this.state.username+'&PASS='+this.state.password,{
+      //   headers: {
+      //     'Accept':'application/json'
+      //   }, 
+      // })
+      axios.get('https://mdev.humaxdigital.com/HumaxMobile/NonAuth/Login.aspx?AppID=Mobile&MacAddress='+mac+'&DeviceName='+appName+'&ID='+this.state.username+'&PASS='+this.state.password )
+     .then(async function(responseData){
         
-        var token = responseData._bodyInit._data.blobId;
+        var token = responseData.data;
         let fcmToken = await AsyncStorage.getItem('fcmToken');
-        console.log("first hit");
+        console.log("guid", token);
         const path = '/production';
         const url = 'https://5q6xg017b6.execute-api.us-east-1.amazonaws.com'+ path;
         const credentials = {
@@ -119,45 +160,46 @@ class HomeScreen extends Component<Props> {
       method: 'POST',
       headers: auth_header,
       body: JSON.stringify({
+        "username": thisobj.state.username,
         "tokenID": fcmToken,
         "guid": token,
-        "deviceType": "android"
+        "deviceType": "android",
+        "deviceModel": appName,
+        "macAddress": mac
+
        })
     });
+    
     //const url = 'https://' + '5q6xg017b6.execute-api.us-east-1.amazonaws.com/production';
-   
+    console.log(options);
     fetch(url, options).then(async function(resp){
       console.log("second hit");
       const responseData = await resp.json();
-      await AsyncStorage.setItem('loginToken', "1");
+      
       await thisobj.setState({loginStatus: true});
-      thisobj.props.navigation.navigate('List');
+      //let resObj = JSON.stringify(responseData);
       //console.log("AWS "+ JSON.stringify(responseData));
+      console.log(responseData.body);
+      if(responseData.body == 'Success'){
+        console.log('for setting instorage', token);
+        await AsyncStorage.setItem('loginToken', token);
+        var getting = await AsyncStorage.getItem('loginToken');
+        console.log('from loacl storage', getting);
+        thisobj.props.navigation.navigate('List');
+      }
 
     })
         //code end
       }
         
-      //   res => {
-      //   var token = res._bodyInit._data.blobId;
-      //   let fcmToken =  AsyncStorage.getItem('fcmToken');
-      // //  console.log('uid  response', token);
-      //   var awspayload = {
-      //     tokenID: fcmToken,
-      //     guid: token,
-      //     deviceType: 'android'
-      //   };
-      //   //fetch('https://5q6xg017b6.execute-api.us-east-1.amazonaws.com/production')
+    
         
-      // }
+    
       )
-     // console.log('paylod', payload);
+    
     });
     
-    // console.log('device name', dname);
-    
-    // console.log('app name', appName);
-    //const userToken = await AsyncStorage.getItem('userToken');
+  
    
   };
 //On click of login btn
@@ -165,13 +207,13 @@ onLogin() {
     if(this.validate()){
         const { username, password } = this.state;
         this._bootstrapAsync();
-        // this.registerForPushNotificationsAsync();
-        // Alert.alert('Credentials', `${username} + ${password}`);
     }
     else{
         Alert.alert('Both fields are required');
     }
 }
+
+
 //Validate input field
 validate() {
     const { username, password } = this.state;
@@ -182,18 +224,23 @@ validate() {
         return true;
     }
 }
-  async componentDidMount(){
+async componentDidMount(){
+  
     this.checkLogin();
     this.checkPermission();
     this.createNotificationListeners();
-  }
+    
+    
+}
 
   ////////////////////// Add these methods //////////////////////
   
   //Remove listeners allocated in createNotificationListeners()
 componentWillUnmount() {
+
   this.notificationListener();
   this.notificationOpenedListener();
+
 }
 
 async createNotificationListeners() {
@@ -286,6 +333,7 @@ showAlert(title, body) {
   async checkLogin() {
     let loginToken = await AsyncStorage.getItem('loginToken');
     if(loginToken){
+      this.validateGuid();
       this.setState({loginStatus : true});
     }
     else{
@@ -293,6 +341,7 @@ showAlert(title, body) {
     }
   }
   render() {
+    const {loader} = this.state;
       return (
         <View style={styles.main}>
         <Text style={styles.heading}>
@@ -318,7 +367,7 @@ showAlert(title, body) {
           onPress={this.onLogin.bind(this)}
         />
         </View>
-        
+        {loader && <Loader/>}
       </View>
       </View>
       );
@@ -380,8 +429,8 @@ const styles = StyleSheet.create({
 //     marginBottom: 5,
 //   },
 // });
-const ListStack = createStackNavigator({ List: ListScreen});
-const AppStack = createStackNavigator({ Home: HomeScreen })
+const ListStack = createStackNavigator({ List: ListScreen, UrlPage: WebviewScreen});
+const AppStack = createStackNavigator({ Home: HomeScreen });
 // const AuthStack = createStackNavigator({ SignIn: SignInScreen });
 
 export default createAppContainer(createSwitchNavigator(
